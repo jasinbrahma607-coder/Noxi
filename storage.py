@@ -75,6 +75,10 @@ def load_premium_users(): return get_file_lines(PREMIUM_FILE)
 def load_sites():         return get_file_lines(SITES_FILE)
 def load_proxies():       return get_file_lines(PROXY_FILE)
 
+# ==================== Admin check ====================
+def is_admin(uid: int) -> bool:
+    return uid in ADMIN_IDS or uid in _DEFAULT_ADMINS
+
 # ==================== Key Management ====================
 KEYS_FILE     = 'keys.json'
 REDEEMED_FILE = 'redeemed.json'
