@@ -9,7 +9,7 @@ import random
 import os
 import httpx
 
-CHECKER_API  = os.environ.get("CHECKER_API_URL", "https://autoshopify-vxo.up.railway.app/shopify/v1/check")
+CHECKER_API  = os.environ.get("CHECKER_API_URL", "https://web-production-e0e5.up.railway.app/shopify/v1/check?cc=&proxy=")
 _API_TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=5.0, pool=10.0)
 
 _http_client: httpx.AsyncClient | None = None
