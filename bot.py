@@ -88,8 +88,8 @@ def bs(text):
     return "".join(_BOLD_SANS_MAP.get(c, c) for c in str(text))
 
 # ====================== CONFIG ======================
-API_ID = int(os.getenv("API_ID", "34057412"))
-API_HASH = os.getenv("API_HASH", "Od546a699818f81c55b64f7c00dcb036")
+API_ID = int(os.getenv("API_ID", "33657928"))
+API_HASH = os.getenv("API_HASH", "a61fde61442113b9a65c699f7020d59a")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8517366800:AAGbU4pTheYVVCqMLYDqGvot4pa4FCGQhSw")
 ADMIN_ID = json.loads(os.getenv("ADMIN_ID", "[5826575488, 8871910561]"))
 HIT_CHANNEL_ID = int(os.getenv("HIT_CHANNEL_ID", "-1004381920430"))
