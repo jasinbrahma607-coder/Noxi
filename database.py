@@ -4,7 +4,7 @@ import datetime
 from motor.motor_asyncio import AsyncIOMotorClient
 
 MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://Hero:jasin121345@cluster0.9wykfhr.mongodb.net/?appName=Cluster0")
-DB_NAME = os.getenv("DB_NAME", "noxi_bot")
+DB_NAME = os.getenv("DB_NAME", "@noxichek_bot")
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
