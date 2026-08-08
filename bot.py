@@ -101,7 +101,7 @@ FORCE_JOIN_IMAGES = [
     "",
     ""
 ]
-API_BASE_URL = os.getenv("API_BASE_URL", "https://web-production-j1j1.up.railway.app/shopify/check")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://shopify-api-production-ac31.up.railway.app/shopify/check")
 RAZORPAY_API_URL = os.getenv("RAZORPAY_API_URL", "https://web-production-43fc5.up.railway.app/razorpay/check")
 BOT_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
