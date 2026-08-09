@@ -101,7 +101,7 @@ FORCE_JOIN_IMAGES = [
     "",
     ""
 ]
-API_BASE_URL = os.getenv("API_BASE_URL", "https://shopify-api-production-ac31.up.railway.app/shopify/check")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://shopify-api-production-ac31.up.railway.app/shopify/v1/check")
 
 # ✅ FIXED: Razorpay API URL – your live endpoint
 RAZORPAY_API_URL = os.getenv("RAZORPAY_API_URL", "https://web-production-43fc5.up.railway.app/razorpay/check")
