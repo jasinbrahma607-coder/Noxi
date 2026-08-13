@@ -1,7 +1,7 @@
 import os
 import json
 
-# ----- Your Credentials (filled) -----
+# ----- Your Credentials -----
 API_ID    = 33657928
 API_HASH  = 'a61fde61442113b9a65c699f7020d59a'
 BOT_TOKEN = '8517366800:AAGbU4pTheYVVCqMLYDqGvot4pa4FCGQhSw'
@@ -57,7 +57,7 @@ LIMITS = {
     "premium": 2500,
 }
 
-# ----- Required chats (must join both) -----
+# ----- Required chats (must join BOTH) -----
 REQUIRED_CHANNEL_ID = -1004381920430    # main channel
 REQUIRED_GROUP_ID   = -1003902938287    # group / second channel
 
@@ -66,7 +66,7 @@ GROUP_INVITE_LINK   = 'https://t.me/+_0kBIVQujUEyOTc1'
 
 # ----- Other channels -----
 HITS_CHANNEL_ID     = -1003965573664    # charged/approved/3ds hits forwarded here
-LOGS_CHANNEL_ID     = -1004381920430    # logs (errors, start/stop, etc.) go here
+LOGS_CHANNEL_ID     = -1004381920430    # logs go here
 FEEDBACK_CHANNEL_ID = -1003902938287    # feedback channel (reserved)
 
 MASS_WORKERS = int(os.environ.get('MASS_WORKERS', '30'))
