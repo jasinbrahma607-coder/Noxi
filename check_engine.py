@@ -9,7 +9,7 @@ import os
 import httpx
 import json
 
-CHECKER_API = os.environ.get("CHECKER_API_URL", "https://web-production-a9462.up.railway.app/check")
+CHECKER_API = os.environ.get("CHECKER_API_URL", "https://web-production-a9462.up.railway.app")
 _API_TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=5.0, pool=10.0)
 
 _http_client: httpx.AsyncClient | None = None
