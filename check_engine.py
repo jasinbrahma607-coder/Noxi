@@ -9,8 +9,9 @@ import os
 import httpx
 import json
 
+# ---- ⚠️ FIXED: base URL without /check ----
 CHECKER_API = os.environ.get("CHECKER_API_URL", "https://web-production-a9462.up.railway.app")
-_API_TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=5.0, pool=10.0)
+_API_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)  # longer read timeout
 
 _http_client: httpx.AsyncClient | None = None
 _client_lock = asyncio.Lock()
@@ -68,18 +69,34 @@ async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
         "proxy":    proxy_raw,
         "low":      True
     }
+    
+    # ---- DEBUG: print the request ----
+    print(f"\n🔍 Sending POST to {CHECKER_API}/check")
+    print(f"   Payload: {json.dumps(payload, indent=2)}")
+    
     try:
         r = await c.post(f"{CHECKER_API}/check", json=payload)
+        print(f"   Status: {r.status_code}")
+        print(f"   Response body: {r.text[:500]}")  # first 500 chars
         r.raise_for_status()
         data = r.json()
-    except Exception as e:
+    except httpx.HTTPStatusError as e:
+        # Non-200 response
+        error_body = e.response.text if e.response else str(e)
         return _make_result(
             card, 'Dead',
-            message=f"API error: {str(e)[:100]}",
+            message=f"API HTTP error: {e.response.status_code} - {error_body[:100]}",
+            retryable=True,
+        )
+    except Exception as e:
+        # Timeout, connection error, etc.
+        return _make_result(
+            card, 'Dead',
+            message=f"API error: {str(e)[:100] or 'Unknown error'}",
             retryable=True,
         )
 
-    # --- Parse API response ---
+    # ---- Parse the response ----
     status = data.get("Response", "ERROR").upper()
     error_msg = data.get("error", "")
     price = data.get("Price", "-")
