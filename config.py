@@ -9,11 +9,11 @@ BOT_TOKEN = '8517366800:AAGbU4pTheYVVCqMLYDqGvot4pa4FCGQhSw'
 TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 # ----- Brand & Owner -----
-BOT_BRAND      = 'SUPERCHECK'
+BOT_BRAND      = 'NOXI'
 OWNER_NAME     = 'SUPERGREMLIN'
 OWNER_USERNAME = 'SUPERGREMLIN01'
 OWNER_ID       = 8871910561
-DEV_LINE       = f'💻 <b>Dev</b>  »  <a href="https://t.me/{OWNER_USERNAME}">{OWNER_NAME}</a>'
+DEV_LINE       = f'⚙️ Dev ↬ <a href="https://t.me/{OWNER_USERNAME}">{OWNER_NAME}</a>'
 
 # ----- Admin(s) -----
 _ADMIN_FILE     = os.path.join(os.path.dirname(__file__), 'admin.json')
@@ -58,15 +58,15 @@ LIMITS = {
 }
 
 # ----- Required chats (must join BOTH) -----
-REQUIRED_CHANNEL_ID = -1004381920430    # main channel
-REQUIRED_GROUP_ID   = -1003902938287    # group / second channel
+REQUIRED_CHANNEL_ID = -1004381920430      # users must join this
+REQUIRED_GROUP_ID   = -1003902938287
 
 CHANNEL_INVITE_LINK = 'https://t.me/+3dlEoWK-vGcwMDI9'
 GROUP_INVITE_LINK   = 'https://t.me/+_0kBIVQujUEyOTc1'
 
-# ----- Other channels -----
-HITS_CHANNEL_ID     = -1003965573664    # charged/approved/3ds hits forwarded here
-LOGS_CHANNEL_ID     = -1004381920430    # logs go here
-FEEDBACK_CHANNEL_ID = -1003902938287    # feedback channel (reserved)
+# ----- Channels for messages -----
+LOGS_CHANNEL_ID     = -1004381920430      # Clean hit logs (no card numbers)
+HITS_CHANNEL_ID     = -1003965573664      # Full card details (Charged, Approved, 3DS)
+FEEDBACK_CHANNEL_ID = -1003902938287      # (reserved)
 
 MASS_WORKERS = int(os.environ.get('MASS_WORKERS', '30'))
