@@ -73,7 +73,6 @@ async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        # Network or HTTP error – treat as retryable
         return _make_result(
             card, 'Dead',
             message=f"API error: {str(e)[:100]}",
@@ -81,7 +80,6 @@ async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
         )
 
     # --- Parse API response ---
-    # The API returns fields: "Response", "error", "Price", "Gate", "Charged", "retryable"
     status = data.get("Response", "ERROR").upper()
     error_msg = data.get("error", "")
     price = data.get("Price", "-")
@@ -101,7 +99,7 @@ async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
     elif status == "APPROVED":
         return _make_result(
             card, 'Approved',
-            message="Approved (possible 3DS or insufficient funds)",
+            message=error_msg or "Approved (possible 3DS or insufficient funds)",
             price=price,
             gateway=gateway,
             proxy=proxy_raw,
@@ -135,10 +133,6 @@ async def test_site(site: str, proxy: str) -> dict:
         return {'site': site, 'status': 'dead', 'msg': str(e)[:80]}
 
 async def check_card_with_retry(card, sites, proxies, max_retries=2, start_proxy=None):
-    """
-    Check a card against the local checker API.
-    Retries on proxy/site errors — stops on a definitive card result.
-    """
     if not sites:
         return _make_result(card, 'Dead', 'No sites configured')
     if not proxies:
@@ -161,7 +155,6 @@ async def check_card_with_retry(card, sites, proxies, max_retries=2, start_proxy
             await asyncio.sleep(0.5)
             continue
 
-        # Terminal results
         if result['status'] in ('Charged', 'Approved'):
             result['proxy'] = proxy_raw
             return result
@@ -169,7 +162,6 @@ async def check_card_with_retry(card, sites, proxies, max_retries=2, start_proxy
         if result['status'] == 'Dead' and not result.get('retry'):
             return result
 
-        # Retryable
         last_err = result.get('message', 'Retryable error')
         if _is_proxy_err(last_err):
             await asyncio.sleep(0.5)
