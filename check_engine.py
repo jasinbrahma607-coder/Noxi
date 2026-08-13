@@ -1,5 +1,7 @@
 """
 check_engine.py — Card checking engine + proxy utilities
+All card check calls go to a local checker service (localhost:8099).
+No external binaries or opaque modules are used.
 """
 import asyncio
 import aiohttp
@@ -56,6 +58,11 @@ def _is_proxy_err(msg: str) -> bool:
     return any(s in msg.lower() for s in _PROXY_ERR_SIGNALS)
 
 async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
+    """
+    POST to the local checker service at localhost:8099/check.
+    Returns a dict with keys: status, message, price, gateway, receipt_url.
+    Raises on connection error or non-200 response.
+    """
     c = await _get_client()
     r = await c.post(f"{CHECKER_API}/check", json={
         "card":     card,
@@ -90,6 +97,7 @@ async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
             gateway   = data.get("gateway", "Shopify Payments"),
             retryable = data.get("retryable", False),
         )
+    # ERROR / unknown
     return _make_result(
         card, 'Dead',
         message   = data.get("message", "Checker error"),
@@ -97,9 +105,14 @@ async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
     )
 
 async def test_site(site: str, proxy: str) -> dict:
+    """
+    Test whether a Shopify site is reachable and functioning.
+    Returns {'site': ..., 'status': 'alive'|'dead'|'step_error', ...}
+    """
     test_card = "5154623245618097|03|2032|156"
     try:
         result = await _call_checker_api(site, test_card, proxy)
+        # Any non-ERROR response means the site is reachable
         if result['status'] in ('Charged', 'Approved', 'Dead'):
             return {'site': site, 'status': 'alive'}
         return {'site': site, 'status': 'dead', 'msg': result.get('message', '')[:100]}
@@ -112,6 +125,10 @@ async def test_site(site: str, proxy: str) -> dict:
         return {'site': site, 'status': 'dead', 'msg': msg}
 
 async def check_card_with_retry(card, sites, proxies, max_retries=2, start_proxy=None):
+    """
+    Check a card against the local checker API.
+    Retries on proxy/site errors — stops on a definitive card result.
+    """
     if not sites:
         return _make_result(card, 'Dead', 'No sites configured')
     if not proxies:
@@ -134,6 +151,7 @@ async def check_card_with_retry(card, sites, proxies, max_retries=2, start_proxy
             await asyncio.sleep(0.5)
             continue
 
+        # Terminal results
         if result['status'] in ('Charged', 'Approved'):
             result['proxy'] = proxy_raw
             return result
@@ -141,6 +159,7 @@ async def check_card_with_retry(card, sites, proxies, max_retries=2, start_proxy
         if result['status'] == 'Dead' and not result.get('retry'):
             return result
 
+        # Retryable
         last_err = result.get('message', 'Retryable error')
         if _is_proxy_err(last_err):
             await asyncio.sleep(0.5)
@@ -182,6 +201,10 @@ def _proxy_to_url(proxy: str) -> str:
     return f'http://{p}'
 
 async def test_proxy(proxy: str) -> dict:
+    """
+    Test a proxy by making an HTTP request through it.
+    Returns {'proxy': ..., 'status': 'alive'|'dead'}
+    """
     proxy_url = _proxy_to_url(proxy)
     test_urls = [
         'http://httpbin.org/ip',
@@ -204,6 +227,7 @@ async def test_proxy(proxy: str) -> dict:
         return {'proxy': proxy, 'status': 'dead'}
 
 async def get_proxy_ip(proxy: str) -> str | None:
+    """Get the exit IP of a proxy."""
     proxy_url = _proxy_to_url(proxy)
     if proxy_url.startswith('socks'):
         return None
