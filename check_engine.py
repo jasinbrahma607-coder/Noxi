@@ -9,9 +9,9 @@ import os
 import httpx
 import json
 
-# ---- ⚠️ FIXED: base URL without /check ----
+# ---- FIXED: base URL without /check ----
 CHECKER_API = os.environ.get("CHECKER_API_URL", "https://web-production-a9462.up.railway.app")
-_API_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)  # longer read timeout
+_API_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
 
 _http_client: httpx.AsyncClient | None = None
 _client_lock = asyncio.Lock()
@@ -77,11 +77,10 @@ async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
     try:
         r = await c.post(f"{CHECKER_API}/check", json=payload)
         print(f"   Status: {r.status_code}")
-        print(f"   Response body: {r.text[:500]}")  # first 500 chars
+        print(f"   Response body: {r.text[:500]}")
         r.raise_for_status()
         data = r.json()
     except httpx.HTTPStatusError as e:
-        # Non-200 response
         error_body = e.response.text if e.response else str(e)
         return _make_result(
             card, 'Dead',
@@ -89,14 +88,13 @@ async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
             retryable=True,
         )
     except Exception as e:
-        # Timeout, connection error, etc.
         return _make_result(
             card, 'Dead',
             message=f"API error: {str(e)[:100] or 'Unknown error'}",
             retryable=True,
         )
 
-    # ---- Parse the response ----
+    # --- Parse API response ---
     status = data.get("Response", "ERROR").upper()
     error_msg = data.get("error", "")
     price = data.get("Price", "-")
@@ -130,7 +128,6 @@ async def _call_checker_api(shop_url: str, card: str, proxy_raw: str) -> dict:
             proxy=proxy_raw,
         )
     else:
-        # ERROR or unknown
         return _make_result(
             card, 'Dead',
             message=error_msg or "Checker error",
